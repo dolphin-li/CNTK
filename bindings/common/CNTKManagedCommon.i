@@ -230,6 +230,7 @@ SWIG_STD_VECTOR_ENHANCED(CNTK::DeviceDescriptor)
 %ignore_function CNTK::ReaderScale;
 %ignore_function CNTK::ReaderColor;
 %ignore_function CNTK::ImageDeserializer;
+%ignore_function CNTK::Base64ImageDeserializer;
 %ignore_function CNTK::CTFDeserializer;
 %ignore_function CNTK::HTKFeatureDeserializer;
 %ignore_function CNTK::HTKMLFDeserializer;
@@ -265,6 +266,8 @@ SWIG_STD_VECTOR_ENHANCED(CNTK::DeviceDescriptor)
 %ignore_function CNTK::AdaGradLearner;
 %ignore_function CNTK::RMSPropLearner;
 %ignore_function CNTK::AdaDeltaLearner;
+%ignore_function CNTK::UniversalLearner;
+%ignore_function CNTK::Internal::UniversalLearner;
 
 %ignore_class CNTK::DistributedLearner;
 

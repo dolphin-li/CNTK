@@ -41,7 +41,9 @@
 %rename(htk_mlf_deserializer) CNTK::HTKMLFDeserializer;
 %rename(_stream_infos) CNTK::SwigMinibatchSource::StreamInfos(PyObject*);
 %rename(_next_minibatch) CNTK::SwigMinibatchSource::_GetNextMinibatch;
+%rename(universal_learner) CNTK::Internal::UniversalLearner;
 %rename(_register_udf_deserialize_callback) CNTK::Internal::RegisterUDFDeserializeCallbackWrapper;
+%rename(base64_image_deserializer) CNTK::Base64ImageDeserializer;
 
 %rename(_none) CNTK::DictionaryValue::Type::None;
 
@@ -152,6 +154,7 @@
 %template() std::vector<std::pair<size_t, double>>;
 %template() std::vector<std::pair<size_t, size_t>>;
 %template() std::vector<std::pair<CNTK::Variable, CNTK::Variable>>;
+%template() std::vector<std::pair<CNTK::Variable, std::shared_ptr<CNTK::Function>>>;
 %template() std::vector<CNTK::Dictionary>;
 %template() std::vector<std::wstring>;
 %template() std::pair<std::vector<std::shared_ptr<CNTK::NDArrayView>>, std::vector<bool>>;
@@ -173,6 +176,8 @@
 %ignore CNTK::Internal::GetComputationNetworkTraceLevel;
 %ignore CNTK::Internal::TensorBoardFileWriter::TensorBoardFileWriter(const std::wstring& dir, const ::Microsoft::MSR::CNTK::ComputationNetworkPtr& modelToVisualize = nullptr);
 %ignore CNTK::Internal::Convolution; 
+// These aren't exported from C++ but the corresponding internal versions are
+%ignore CNTK::UniversalLearner;
 
 %ignore CNTK::Function::RegisterUDFDeserializeCallback;
 %ignore CNTK::Function::GetUDFDeserializeCallback;
@@ -1822,12 +1827,16 @@ namespace CNTK {
     class UserBackPropState;
     typedef std::shared_ptr<UserBackPropState> UserBackPropStatePtr;
 
-    class UserBackPropState : public BackPropState {
+    class UserBackPropState : public BackPropState
+    {
+
+        template <typename T, typename ...CtorArgTypes>
+        friend inline std::shared_ptr<T> MakeSharedObject(CtorArgTypes&& ...ctorArgs);
+
     public:
-        UserBackPropState(const FunctionPtr& function, const DeviceDescriptor& computeDevice, PyObject* userData)
-            : BackPropState(function, computeDevice), m_userData(userData)
+        static BackPropStatePtr Create(const FunctionPtr& function, const DeviceDescriptor& computeDevice, PyObject* userData)
         {
-            Py_INCREF(m_userData);
+            return MakeSharedObject<UserBackPropState>(function, computeDevice, userData);
         }
 
         const PyObject* Data() const
@@ -1851,6 +1860,12 @@ namespace CNTK {
         }
 
     private:
+        UserBackPropState(const FunctionPtr& function, const DeviceDescriptor& computeDevice, PyObject* userData)
+            : BackPropState(function, computeDevice), m_userData(userData)
+        {
+            Py_INCREF(m_userData);
+        }
+
         const PyObject* m_userData;
     };
 }
