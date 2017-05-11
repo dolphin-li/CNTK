@@ -76,10 +76,10 @@ def _get_rnn_gates(op_type):
         # that cell got projection/bias as well before element_times
         # from CUDNN doc watch out for the difference in h't calculation:
         #
-        # it = σ(Wixt + Riht-1 + bWi + bRu)
-        # rt = σ(Wrxt + Rrht-1 + bWr + bRr)
-        # h't = tanh(Whxt + rt◦(Rhht-1 + bRh) + bWh)
-        # ht = (1 - it)◦h't + it◦ht-1
+        # it = sigmoid(Wixt + Riht-1 + bWi + bRu)
+        # rt = sigmoid(Wrxt + Rrht-1 + bWr + bRr)
+        # h't = tanh(Whxt + rt.*(Rhht-1 + bRh) + bWh)
+        # ht = (1 - it) .* h't + it .* ht-1
         #
         # so to convert cudnn to CPU we need a different GRU
         num_gates = 3
