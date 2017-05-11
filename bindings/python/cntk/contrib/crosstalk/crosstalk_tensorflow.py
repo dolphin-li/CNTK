@@ -3,12 +3,6 @@
 # for full license information.
 # ==============================================================================
 
-try:
-    import tensorflow as tf
-except ImportError:
-    import pip
-    pip.main(['install', '--user', 'tensorflow'])
-
 import tensorflow as tf
 import numpy as np
 from cntk.contrib import crosstalk as cstk
@@ -82,10 +76,19 @@ def _adjust_forget_bias(all_bias, hidden_dim, forget_bias):
     return np.concatenate((i,m,f,o))
     
 def _rnn_trainable_in_scope(scope):
-    fw_M=find_trainable('Matrix', scope=scope+'/FW')
-    fw_b=find_trainable('Bias',   scope=scope+'/FW')
-    bw_M=find_trainable('Matrix', scope=scope+'/BW')
-    bw_b=find_trainable('Bias',   scope=scope+'/BW')
+    if tf.VERSION.startswith('0.12'):
+        fw_M=find_trainable('Matrix', scope=scope+'/FW')
+        fw_b=find_trainable('Bias',   scope=scope+'/FW')
+        bw_M=find_trainable('Matrix', scope=scope+'/BW')
+        bw_b=find_trainable('Bias',   scope=scope+'/BW')
+    elif tf.VERSION.startswith('1'):
+        fw_M=find_trainable('weights', scope=scope+'/fw')
+        fw_b=find_trainable('biases',   scope=scope+'/fw')
+        bw_M=find_trainable('weights', scope=scope+'/bw')
+        bw_b=find_trainable('biases',   scope=scope+'/bw')
+    else:
+        raise Exception('only supports 0.12.* and 1.*')
+
     return fw_M, fw_b, bw_M, bw_b
 
 def rnn_getter(sess):

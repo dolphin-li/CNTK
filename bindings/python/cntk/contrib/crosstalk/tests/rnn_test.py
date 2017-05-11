@@ -39,14 +39,28 @@ def tf_baseline_lstm():
     with tf.variable_scope("rnn"):
         x = tf.placeholder(tf.float32, [batch_size, max_seq_len, in_dim])
         l = tf.placeholder(tf.int32, [batch_size])
-        cell = tf.nn.rnn_cell.BasicLSTMCell(dim)
-        (fw, bw), _ = tf.nn.bidirectional_dynamic_rnn(cell, cell, x, l, dtype=tf.float32)
-        
-        ci.watch('rnn/BiRNN',
+
+        if tf.VERSION.startswith('0.12'):
+            cell = tf.nn.rnn_cell.BasicLSTMCell(dim)
+            (fw, bw), _ = tf.nn.bidirectional_dynamic_rnn(cell, cell, x, l, dtype=tf.float32)
+            scope = 'rnn/BiRNN'
+        elif tf.VERSION.startswith('1'):
+            (fw, bw), _ = tf.nn.bidirectional_dynamic_rnn(tf.contrib.rnn.BasicLSTMCell(dim), tf.contrib.rnn.BasicLSTMCell(dim), x, l, dtype=tf.float32)
+            scope = 'rnn/bidirectional_rnn'
+        else:
+            raise Exception('only supports 0.12.* and 1.*')
+
+        ci.watch(scope,
                   'birnn', var_type=cstk.RnnAttr,
                   attr=cstk.RnnAttr(bidirectional=True, op_type='lstm', input_dim=in_dim, hidden_dim=dim, forget_bias=1)) # tf default forget_bias==1
 
-        output = tf.concat(2, [fw, bw])
+        if tf.VERSION.startswith('0.12'):
+            output = tf.concat(2, [fw, bw])
+        elif tf.VERSION.startswith('1'):
+            output = tf.concat([fw,bw], 2)
+        else:
+            raise Exception('only supports 0.12.* and 1.*')
+            
         ci.watch(output, 'birnn_out', var_type=crtf.VariableType)
 
     with tf.Session() as sess:
