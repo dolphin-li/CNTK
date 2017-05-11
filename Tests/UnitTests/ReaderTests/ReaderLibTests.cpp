@@ -1076,6 +1076,87 @@ BOOST_AUTO_TEST_CASE(CheckEpochBoundarySingleWorker)
     test(underTestNo);
 }
 
+
+// Make sure we do not cut the minibatches at the end of the epoch such that they
+// contain only a single sequence. For example, with an input data consisting of 3-sample
+// sequences, minibatch size set to 90 and the epoch size to 100, the source should return
+// two minibatches 90 and 12 samples in each and not three minibatches (as it used to) 
+// with 90, 9 and 3 samples. In other words, the maximum number of minibatches in an epoch
+// should be <= ceil(epoch size / minibatch size)
+BOOST_AUTO_TEST_CASE(CheckNoDegenerateMinibatches)
+{
+    struct Parameters 
+    {
+        size_t numSequences;
+        size_t sequenceLength;
+        size_t epochSize;
+        size_t minibatchSize;
+        size_t epochIndex;
+    };
+
+    vector<Parameters> params = { {50, 3, 100, 90, 0} };
+
+    std::mt19937 rng(77);
+    while (params.size() < 100) 
+    {
+        Parameters p;
+        p.numSequences = rng() % 100 + 1;
+        p.sequenceLength = rng() % 100 + 1;
+        p.minibatchSize = (rng() % 10) * p.sequenceLength + 1;
+        p.epochSize = (rng() % 20) * p.sequenceLength + 1;
+        p.epochIndex = rng() % 10;
+        params.push_back(p);
+    }
+
+
+    for (const auto& p : params)
+    {
+        vector<float> data(p.numSequences);
+        iota(data.begin(), data.end(), 0.0f);
+
+        auto mockDeserializer = make_shared<MockDeserializer>(1, p.numSequences, data, uint32_t(p.sequenceLength));
+
+        auto test = [&p](SequenceEnumeratorPtr underTest)
+        {
+            size_t epochSize = p.epochSize;
+
+            if (epochSize == 781)
+                epochSize;
+
+            EpochConfiguration config;
+            config.m_numberOfWorkers = 1;
+            config.m_workerRank = 0;
+            config.m_minibatchSizeInSamples = p.minibatchSize;
+            config.m_totalEpochSizeInSamples = epochSize;
+            config.m_epochIndex = p.epochIndex;
+            config.m_allowMinibatchesToCrossSweepBoundaries = true;
+            underTest->StartEpoch(config);
+
+            Sequences s;
+            size_t numberOfSamples = 0;
+            size_t numberOfMinibatches = 0;
+            do
+            {
+                s = underTest->GetNextSequences(p.minibatchSize, p.minibatchSize);
+                if (!s.m_data.empty())
+                    for (const auto& seq : s.m_data.front())
+                        numberOfSamples += seq->m_numberOfSamples;
+
+                numberOfMinibatches++;
+            } while (!s.m_endOfEpoch);
+
+            BOOST_TEST((numberOfSamples <= epochSize || (numberOfSamples - epochSize) < p.sequenceLength));
+            BOOST_TEST((numberOfMinibatches <= ceil(epochSize* 1.0/ p.minibatchSize)));
+        };
+
+        auto underTestBlock = make_shared<BlockRandomizer>(0, size_t(-1), mockDeserializer, true);
+        auto underTestNo = make_shared<NoRandomizer>(mockDeserializer);
+
+        test(underTestBlock);
+        test(underTestNo);
+    }
+}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(PackerTests)
